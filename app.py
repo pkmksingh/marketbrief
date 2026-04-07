@@ -376,18 +376,21 @@ def main():
         }, 1000);
 
         // --- INSTANT SEARCH LOGIC ---
-        // We hook into the Streamlit text input by targeting the input element directly
-        document.addEventListener('input', function(e) {
+        // We use window.parent.document because Streamlit UI elements 
+        // are in the parent frame relative to this script.
+        const targetDoc = (window.parent && window.parent.document) ? window.parent.document : document;
+        
+        targetDoc.addEventListener('input', function(e) {
+            // Target the search input by its placeholder
             if (e.target.tagName === 'INPUT' && e.target.placeholder === '🔍 Search market headlines...') {
                 const query = e.target.value.toLowerCase();
-                const rows = document.querySelectorAll('.news-row');
+                const rows = targetDoc.querySelectorAll('.news-row');
                 
                 rows.forEach(row => {
-                    const headline = row.querySelector('.headline-link').innerText.toLowerCase();
-                    if (headline.includes(query)) {
-                        row.style.display = 'flex';
-                    } else {
-                        row.style.display = 'none';
+                    const headline_elem = row.querySelector('.headline-link');
+                    if (headline_elem) {
+                        const headline = headline_elem.innerText.toLowerCase();
+                        row.style.display = headline.includes(query) ? 'flex' : 'none';
                     }
                 });
             }
