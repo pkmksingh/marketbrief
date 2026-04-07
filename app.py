@@ -322,12 +322,37 @@ def fetch_indices():
 
 # --- MAIN UI ---
 def main():
-    # 🔄 Auto-Refresh Script (Every 5 Minutes)
+    # Initialize Pagination State
+    if 'items_to_show' not in st.session_state:
+        st.session_state.items_to_show = 100
+    # 🔄 Auto-Refresh Script & Infinite Scroll Clicker
     st.markdown("""
     <script>
+        // Auto-Refresh (5m)
         setTimeout(function(){
             window.location.reload();
         }, 300000);
+
+        // Infinite Scroll Observer
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const btn = window.parent.document.querySelector('button[kind="secondary"]');
+                    // Find the 'Load More' button by text content if kind is not unique
+                    const buttons = Array.from(window.parent.document.querySelectorAll('button'));
+                    const loadMoreBtn = buttons.find(b => b.innerText.includes('Load More'));
+                    if (loadMoreBtn) {
+                        loadMoreBtn.click();
+                    }
+                }
+            });
+        }, { threshold: 0.1 });
+
+        // Periodically check for the target element and observe it
+        setInterval(() => {
+            const target = window.parent.document.getElementById('load-more-trigger');
+            if (target) observer.observe(target);
+        }, 1000);
     </script>
     """, unsafe_allow_html=True)
 
@@ -375,8 +400,10 @@ def main():
     </div>
     """, unsafe_allow_html=True)
 
-    # Render Batch 1-Line News Feed (Limit Expanded to 500)
-    for _, row in df_news.head(500).iterrows():
+    # Render Batch 1-Line News Feed (Limit Expanded to pagination state)
+    df_slice = df_news.head(st.session_state.items_to_show)
+    
+    for _, row in df_slice.iterrows():
         highlighted = highlight_impact(row['title'])
         rel_time = format_time_ago(row['pubDate'])
         
@@ -395,6 +422,15 @@ def main():
         </div>
         """
         st.markdown(row_html, unsafe_allow_html=True)
+
+    # --- PAGINATION TRIGGER ---
+    if st.session_state.items_to_show < len(df_news):
+        st.markdown('<div id="load-more-trigger" style="height: 10px;"></div>', unsafe_allow_html=True)
+        if st.button("Load More", type="secondary", use_container_width=True):
+            st.session_state.items_to_show += 100
+            st.rerun()
+    else:
+        st.markdown('<div style="text-align: center; padding: 20px; color: #64748b; font-size: 0.8rem;">End of market brief.</div>', unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
