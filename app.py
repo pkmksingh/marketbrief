@@ -195,11 +195,7 @@ def get_source_name(url, title=""):
     parsed = urlparse(url)
     domain = parsed.netloc.replace('www.', '')
     
-    # Special Handling for Google News redirects
-    if 'news.google.com' in domain and ' - ' in title:
-        return title.split(' - ')[-1].strip()
-    
-    # Mapping for professional look
+    # --- 1. MAPPING (Fastest/Strongest) ---
     mapping = {
         'moneycontrol.com': 'Moneycontrol',
         'financialexpress.com': 'Financial Express',
@@ -213,25 +209,40 @@ def get_source_name(url, title=""):
         'cnbctv18.com': 'CNBC TV18',
         'zeebiz.com': 'Zee Business',
         'bloombergquint.com': 'Bloomberg Quint',
-        'ndtv.com': 'NDTV Profit',
         'thehindubusinessline.com': 'BusinessLine',
         'fortuneindia.com': 'Fortune India',
         'goodreturns.in': 'GoodReturns',
         'ticker.finology.in': 'Finology',
         'groww.in': 'Groww',
-        'stockedge.com': 'StockEdge'
+        'stockedge.com': 'StockEdge',
+        'investing.com': 'Investing.com',
+        'money.rediff.com': 'Rediff Money',
+        'timesofindia.indiatimes.com': 'Times of India',
+        'ndtv.com': 'NDTV Profit',
+        'outlookbusiness.com': 'Outlook Business'
     }
     
     if domain in mapping:
         return mapping[domain]
+
+    # --- 2. GOOGLE NEWS REDIRECTS (Title Extraction) ---
+    if 'news.google.com' in domain:
+        # Try multiple common delimiters used by publishers
+        for sep in [' - ', ' | ', ' : ']:
+            if sep in title:
+                return title.split(sep)[-1].strip()
     
-    # Better fallback for nested subdomains (e.g., in.investing.com -> Investing)
-    parts = domain.split('.')
+    # --- 3. CLEAN FALLBACK FROM DOMAIN ---
+    # Removes TLDs like .com, .in, .net and cleans up the string
+    name = domain.split(':')[0] # Remove port if any
+    parts = name.split('.')
     if len(parts) >= 2:
-        # Get the name before .com, .in, etc.
-        name = parts[-2].capitalize()
-        return name
-    return domain.capitalize()
+        # Handle cases like 'co.in' or 'com.hk'
+        if parts[-2] in ['com', 'co', 'org', 'net', 'edu', 'gov']:
+             name = parts[-3] if len(parts) >= 3 else parts[-2]
+        else:
+             name = parts[-2]
+    return name.replace('-', ' ').capitalize()
 
 def highlight_impact(title):
     highlighted = title
@@ -349,9 +360,7 @@ def main():
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
-                    const btn = window.parent.document.querySelector('button[kind="secondary"]');
-                    // Find the 'Load More' button by text content if kind is not unique
-                    const buttons = Array.from(window.parent.document.querySelectorAll('button'));
+                    const buttons = Array.from(document.querySelectorAll('button'));
                     const loadMoreBtn = buttons.find(b => b.innerText.includes('Load More'));
                     if (loadMoreBtn) {
                         loadMoreBtn.click();
@@ -362,7 +371,7 @@ def main():
 
         // Periodically check for the target element and observe it
         setInterval(() => {
-            const target = window.parent.document.getElementById('load-more-trigger');
+            const target = document.getElementById('load-more-trigger');
             if (target) observer.observe(target);
         }, 1000);
 
@@ -371,7 +380,7 @@ def main():
         document.addEventListener('input', function(e) {
             if (e.target.tagName === 'INPUT' && e.target.placeholder === '🔍 Search market headlines...') {
                 const query = e.target.value.toLowerCase();
-                const rows = window.parent.document.querySelectorAll('.news-row');
+                const rows = document.querySelectorAll('.news-row');
                 
                 rows.forEach(row => {
                     const headline = row.querySelector('.headline-link').innerText.toLowerCase();
