@@ -13,7 +13,7 @@ st.set_page_config(
     page_title="Bull & Bear | Stock Sentiment Dashboard",
     page_icon="📈",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 # Initialize sentiment analyzer
@@ -180,15 +180,29 @@ IMPACT_REGEX = {
 
 # --- HELPER FUNCTIONS ---
 def get_source_name(url, feed_title):
-    if 'moneycontrol.com' in url: return 'Moneycontrol'
-    if 'financialexpress.com' in url: return 'Financial Express'
-    if 'business-standard.com' in url: return 'Business Standard'
-    if 'economictimes' in url: return 'Economic Times'
-    if 'livemint' in url: return 'LiveMint'
-    if 'zerodha.com' in url: return 'Zerodha Pulse'
-    if 'businesstoday.in' in url: return 'Business Today'
-    if 'reuters.com' in url: return 'Reuters India'
-    return feed_title.replace('Google News - ', '') if feed_title else 'Market News'
+    parsed = urlparse(url)
+    domain = parsed.netloc.replace('www.', '')
+    
+    # Mapping for professional look
+    mapping = {
+        'moneycontrol.com': 'Moneycontrol',
+        'financialexpress.com': 'Financial Express',
+        'business-standard.com': 'Business Standard',
+        'economictimes.indiatimes.com': 'Economic Times',
+        'livemint.com': 'LiveMint',
+        'pulse.zerodha.com': 'Zerodha Pulse',
+        'businesstoday.in': 'Business Today',
+        'reuters.com': 'Reuters India',
+        'ndtvprofit.com': 'NDTV Profit',
+        'cnbctv18.com': 'CNBC TV18',
+        'zeebiz.com': 'Zee Business',
+        'bloombergquint.com': 'Bloomberg Quint',
+        'ndtv.com': 'NDTV Profit',
+        'thehindubusinessline.com': 'BusinessLine',
+        'fortuneindia.com': 'Fortune India'
+    }
+    
+    return mapping.get(domain, domain.split('.')[0].capitalize())
 
 def highlight_impact(title):
     highlighted = title
@@ -205,9 +219,10 @@ def fetch_all_news():
     def fetch_feed(url):
         try:
             feed = feedparser.parse(url)
-            source = get_source_name(url, feed.feed.get('title', ''))
             items = []
             for entry in feed.entries:
+                link = entry.get('link', '#')
+                source = get_source_name(link, feed.feed.get('title', ''))
                 title = entry.get('title', '')
                 if len(title.split()) < 5: continue
                 
@@ -299,12 +314,8 @@ def main():
     </script>
     """, unsafe_allow_html=True)
 
-    # 🔍 Minimalist Inline Search
-    col_title, col_search = st.columns([2, 1])
-    with col_title:
-        st.markdown("### 🎯 BULL & BEAR TERMINAL", unsafe_allow_html=True)
-    with col_search:
-        search_query = st.text_input("", placeholder="Search headlines...")
+    # 🔍 Minimalist Inline Search (Full Width)
+    search_query = st.text_input("", placeholder="🔍 Search market headlines...", label_visibility="collapsed")
 
     # Market Indices
     indices = fetch_indices()
