@@ -388,11 +388,11 @@ def main():
     
     # --- HIT COUNTER (Real Data) ---
     st.markdown("""
-        <div style="text-align: right; margin-top: -12px; margin-bottom: 8px;">
-            <img src="https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Ftrading-pulse-terminal.streamlit.app&count_bg=%231e293b&title_bg=%230f172a&icon=&icon_color=%23E7E7E7&title=TERMINAL+HITS&edge_flat=true" alt="Hits"/>
+        <div style="text-align: right; margin-bottom: 12px; padding-right: 10px;">
+            <img src="https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Ftrading-brief-stock-sentiment.streamlit.app&count_bg=%231e293b&title_bg=%230f172a&icon=&icon_color=%23E7E7E7&title=TERMINAL+HITS&edge_flat=true" alt="Hits"/>
         </div>
     """, unsafe_allow_html=True)
-
+    
     st.markdown("<div style='margin-bottom: 12px;'></div>", unsafe_allow_html=True)
 
     # 🔍 Minimalist Inline Search (Full Width)
