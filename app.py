@@ -10,8 +10,8 @@ from urllib.parse import urlparse
 
 # --- CONFIGURATION ---
 st.set_page_config(
-    page_title="Bull & Bear | Stock Sentiment Dashboard",
-    page_icon="📈",
+    page_title="Market Brief",
+    page_icon="📊",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -126,44 +126,44 @@ st.markdown("""
 
 # --- DATA CONSTANTS ---
 RSS_FEEDS = [
-    'https://news.google.com/rss/search?q=when:24h+stock+market+india+NSE+BSE+finance&hl=en-IN&gl=IN&ceid=IN:en',
+    'https://news.google.com/rss/search?q=stock+market+india+NSE+BSE+finance&hl=en-IN&gl=IN&ceid=IN:en',
     'https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=when:24h+stock+market+india+business&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=when:24h+site:moneycontrol.com+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=when:24h+site:financialexpress.com+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=when:24h+site:business-standard.com+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en',
+    'https://news.google.com/rss/search?q=stock+market+india+business&hl=en-IN&gl=IN&ceid=IN:en',
+    'https://news.google.com/rss/search?q=site:moneycontrol.com+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en',
+    'https://news.google.com/rss/search?q=site:financialexpress.com+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en',
+    'https://news.google.com/rss/search?q=site:business-standard.com+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en',
     'https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms',
     'https://www.livemint.com/rss/markets',
-    'https://news.google.com/rss/search?q=when:24h+site:thehindubusinessline.com+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=when:24h+site:pulse.zerodha.com&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=when:24h+site:in.investing.com+intitle:(stocks+OR+markets+OR+india)&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=when:24h+site:web.stockedge.com&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=when:24h+site:groww.in&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=when:24h+site:ndtvprofit.com+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=when:24h+site:cnbctv18.com+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=when:24h+site:zeebiz.com+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=when:24h+site:goodreturns.in+intitle:(stocks+OR+markets+OR+shares)&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=when:24h+site:ticker.finology.in&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=when:24h+site:moneyworks4me.com&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=when:24h+site:trendlyne.com&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=when:24h+site:tickertape.in&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=when:24h+site:equitymaster.com+intitle:(stocks+OR+markets+OR+shares)&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=when:24h+site:marketsmojo.com&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=when:24h+site:fortuneindia.com+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=when:24h+site:businessworld.in+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=when:24h+site:outlookbusiness.com+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=when:24h+site:money.rediff.com+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=when:24h+site:reuters.com+intitle:(india+AND+(stocks+OR+markets+OR+nse+OR+bse))&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=when:24h+site:timesofindia.indiatimes.com+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en',
+    'https://news.google.com/rss/search?q=site:thehindubusinessline.com+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en',
+    'https://news.google.com/rss/search?q=site:pulse.zerodha.com&hl=en-IN&gl=IN&ceid=IN:en',
+    'https://news.google.com/rss/search?q=site:in.investing.com+intitle:(stocks+OR+markets+OR+india)&hl=en-IN&gl=IN&ceid=IN:en',
+    'https://news.google.com/rss/search?q=site:web.stockedge.com&hl=en-IN&gl=IN&ceid=IN:en',
+    'https://news.google.com/rss/search?q=site:groww.in&hl=en-IN&gl=IN&ceid=IN:en',
+    'https://news.google.com/rss/search?q=site:ndtvprofit.com+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en',
+    'https://news.google.com/rss/search?q=site:cnbctv18.com+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en',
+    'https://news.google.com/rss/search?q=site:zeebiz.com+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en',
+    'https://news.google.com/rss/search?q=site:goodreturns.in+intitle:(stocks+OR+markets+OR+shares)&hl=en-IN&gl=IN&ceid=IN:en',
+    'https://news.google.com/rss/search?q=site:ticker.finology.in&hl=en-IN&gl=IN&ceid=IN:en',
+    'https://news.google.com/rss/search?q=site:moneyworks4me.com&hl=en-IN&gl=IN&ceid=IN:en',
+    'https://news.google.com/rss/search?q=site:trendlyne.com&hl=en-IN&gl=IN&ceid=IN:en',
+    'https://news.google.com/rss/search?q=site:tickertape.in&hl=en-IN&gl=IN&ceid=IN:en',
+    'https://news.google.com/rss/search?q=site:equitymaster.com+intitle:(stocks+OR+markets+OR+shares)&hl=en-IN&gl=IN&ceid=IN:en',
+    'https://news.google.com/rss/search?q=site:marketsmojo.com&hl=en-IN&gl=IN&ceid=IN:en',
+    'https://news.google.com/rss/search?q=site:fortuneindia.com+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en',
+    'https://news.google.com/rss/search?q=site:businessworld.in+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en',
+    'https://news.google.com/rss/search?q=site:outlookbusiness.com+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en',
+    'https://news.google.com/rss/search?q=site:money.rediff.com+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en',
+    'https://news.google.com/rss/search?q=site:reuters.com+intitle:(india+AND+(stocks+OR+markets+OR+nse+OR+bse))&hl=en-IN&gl=IN&ceid=IN:en',
+    'https://news.google.com/rss/search?q=site:timesofindia.indiatimes.com+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en',
     'https://www.businesstoday.in/rss/markets',
-    'https://news.google.com/rss/search?q=when:24h+site:screener.in&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=when:24h+site:capitalmind.in&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=when:24h+site:bseindia.com+corporate+announcements&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=when:24h+site:nseindia.com+corporate+announcements&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=when:24h+intitle:(dividend+OR+buyback+OR+"bonus+issue"+OR+"stock+split")+NSE+BSE&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=when:24h+intitle:("quarterly+results"+OR+"earnings"+OR+"PAT+growth")+NSE+BSE&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=when:24h+intitle:("FII+buying"+OR+"DII+selling"+OR+"bulk+deal"+OR+"block+deal")+NSE+BSE&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=when:24h+intitle:("SEBI"+OR+"RBI+monetary+policy"+OR+"repo+rate")+India&hl=en-IN&gl=IN&ceid=IN:en'
+    'https://news.google.com/rss/search?q=site:screener.in&hl=en-IN&gl=IN&ceid=IN:en',
+    'https://news.google.com/rss/search?q=site:capitalmind.in&hl=en-IN&gl=IN&ceid=IN:en',
+    'https://news.google.com/rss/search?q=site:bseindia.com+corporate+announcements&hl=en-IN&gl=IN&ceid=IN:en',
+    'https://news.google.com/rss/search?q=site:nseindia.com+corporate+announcements&hl=en-IN&gl=IN&ceid=IN:en',
+    'https://news.google.com/rss/search?q=intitle:(dividend+OR+buyback+OR+"bonus+issue"+OR+"stock+split")+NSE+BSE&hl=en-IN&gl=IN&ceid=IN:en',
+    'https://news.google.com/rss/search?q=intitle:("quarterly+results"+OR+"earnings"+OR+"PAT+growth")+NSE+BSE&hl=en-IN&gl=IN&ceid=IN:en',
+    'https://news.google.com/rss/search?q=intitle:("FII+buying"+OR+"DII+selling"+OR+"bulk+deal"+OR+"block+deal")+NSE+BSE&hl=en-IN&gl=IN&ceid=IN:en',
+    'https://news.google.com/rss/search?q=intitle:("SEBI"+OR+"RBI+monetary+policy"+OR+"repo+rate")+India&hl=en-IN&gl=IN&ceid=IN:en'
 ]
 
 IMPACT_KEYWORDS = {
@@ -230,8 +230,8 @@ def highlight_impact(title):
 @st.cache_data(ttl=600)  # Cache for 10 minutes
 def fetch_all_news():
     all_news = []
-    # Make cutoff offset-aware for comparison
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=48)
+    # Expand window to 5 days for more coverage
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=120)
     
     def fetch_feed(url):
         try:
@@ -331,19 +331,28 @@ def main():
     </script>
     """, unsafe_allow_html=True)
 
-    # 🔍 Minimalist Inline Search (Full Width)
-    search_query = st.text_input("", placeholder="🔍 Search market headlines...", label_visibility="collapsed")
-
-    # Market Indices
+    # --- ULTRA-COMPACT INDEXES (TOP) ---
     indices = fetch_indices()
     sorted_names = ['NIFTY 50', 'SENSEX', 'BANK NIFTY', 'INDIA VIX']
-    col_idx = st.columns(len(sorted_names))
+    col_idx = st.columns(4)
+    
     for i, name in enumerate(sorted_names):
         if name in indices:
             val = indices[name]
-            col_idx[i].metric(name, f"{val['price']:.2f}", f"{val['pct']:.2f}%")
+            color = "#4ade80" if val['pct'] >= 0 else "#f87171"
+            arrow = "▲" if val['pct'] >= 0 else "▼"
+            # Ultra-compact custom HTML metric
+            col_idx[i].markdown(f"""
+                <div style="background: rgba(30, 41, 59, 0.7); padding: 4px 8px; border-radius: 4px; border-left: 3px solid {color}; line-height: 1;">
+                    <div style="font-size: 0.65rem; color: #94a3b8; font-weight: 700;">{name}</div>
+                    <div style="font-size: 1rem; font-weight: 700; color: white;">{val['price']:.0f} <span style="font-size: 0.7rem; color: {color};">{arrow} {abs(val['pct']):.2f}%</span></div>
+                </div>
+            """, unsafe_allow_html=True)
     
-    st.divider()
+    st.markdown("<div style='margin-bottom: 12px;'></div>", unsafe_allow_html=True)
+
+    # 🔍 Minimalist Inline Search (Full Width)
+    search_query = st.text_input("", placeholder="🔍 Search market headlines...", label_visibility="collapsed")
     
     with st.spinner("Syncing latest market news..."):
         df_news = fetch_all_news()
@@ -366,8 +375,8 @@ def main():
     </div>
     """, unsafe_allow_html=True)
 
-    # Render Batch 1-Line News Feed
-    for _, row in df_news.head(200).iterrows():
+    # Render Batch 1-Line News Feed (Limit Expanded to 500)
+    for _, row in df_news.head(500).iterrows():
         highlighted = highlight_impact(row['title'])
         rel_time = format_time_ago(row['pubDate'])
         
