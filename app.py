@@ -71,7 +71,7 @@ st.markdown("""
         font-size: 0.8rem;
     }
 </style>
-""", allow_unsafe_html=True)
+""", unsafe_allow_html=True)
 
 # --- DATA CONSTANTS ---
 RSS_FEEDS = [
@@ -318,7 +318,7 @@ def main():
                     </div>
                 </div>
                 """
-                st.markdown(card_html, allow_unsafe_html=True)
+                st.markdown(card_html, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
