@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 import concurrent.futures
 from urllib.parse import urlparse
+import streamlit.components.v1 as components
 
 # --- CONFIGURATION ---
 st.set_page_config(
@@ -30,456 +31,198 @@ def format_time_ago(dt):
     if seconds < 86400: return f"{int(seconds // 3600)}h ago"
     return f"{int(seconds // 86400)}d ago"
 
-# --- STYLING ---
-st.markdown("""
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Roboto+Mono:wght@400;500&display=swap');
-    
-    * { font-family: 'Outfit', sans-serif; }
-    
-    .stApp {
-        background: #0f172a;
+def get_source_name(url, title=""):
+    parsed = urlparse(url)
+    domain = parsed.netloc.replace('www.', '')
+    mapping = {
+        'moneycontrol.com': 'Moneycontrol', 'financialexpress.com': 'Financial Express',
+        'business-standard.com': 'Business Standard', 'economictimes.indiatimes.com': 'Economic Times',
+        'livemint.com': 'LiveMint', 'pulse.zerodha.com': 'Zerodha Pulse',
+        'businesstoday.in': 'Business Today', 'reuters.com': 'Reuters India',
+        'ndtvprofit.com': 'NDTV Profit', 'cnbctv18.com': 'CNBC TV18',
+        'zeebiz.com': 'Zee Business', 'bloombergquint.com': 'Bloomberg Quint',
+        'thehindubusinessline.com': 'BusinessLine', 'fortuneindia.com': 'Fortune India',
+        'goodreturns.in': 'GoodReturns', 'ticker.finology.in': 'Finology',
+        'groww.in': 'Groww', 'stockedge.com': 'StockEdge',
+        'investing.com': 'Investing.com', 'money.rediff.com': 'Rediff Money',
+        'timesofindia.indiatimes.com': 'Times of India', 'ndtv.com': 'NDTV Profit',
+        'outlookbusiness.com': 'Outlook Business'
     }
-    
-    .stMetric {
-        background: rgba(30, 41, 59, 0.7);
-        padding: 10px;
-        border-radius: 8px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    /* High-Density Row Style */
-    .news-row {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 6px 12px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-        transition: background 0.2s;
-        width: 100%;
-        border-left: 3px solid transparent;
-    }
-    
-    .news-row:hover {
-        background: rgba(56, 189, 248, 0.05);
-    }
-
-    /* Sentiment Glow Indicators */
-    .glow-pos { border-left-color: #4ade80 !important; }
-    .glow-neg { border-left-color: #f87171 !important; }
-    .glow-neu { border-left-color: rgba(148, 163, 184, 0.2) !important; }
-
-    .source-tag {
-        flex-shrink: 0;
-        width: 120px;
-        font-size: 0.75rem;
-        font-weight: 600;
-        color: #38bdf8;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    .time-tag {
-        flex-shrink: 0;
-        width: 65px;
-        font-family: 'Roboto Mono', monospace;
-        font-size: 0.72rem;
-        color: #94a3b8;
-    }
-
-    .headline-link {
-        flex-grow: 1;
-        text-decoration: none !important;
-        color: #f8fafc !important;
-        font-size: 0.95rem;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    .sentiment-tag {
-        flex-shrink: 0;
-        width: 80px;
-        text-align: right;
-        font-size: 0.75rem;
-        font-weight: 500;
-    }
-
-    .impact-high { color: #f87171; font-weight: 700; text-decoration: underline; }
-    .impact-pos { color: #4ade80; font-weight: 700; }
-    .impact-neg { color: #f87171; font-weight: 700; }
-
-    /* Minimalist Top Search styling */
-    .stTextInput input {
-        border-radius: 4px !important;
-        background: rgba(30, 41, 59, 0.8) !important;
-        border: 1px solid rgba(255,255,255,0.1) !important;
-        color: white !important;
-        font-size: 0.85rem !important;
-    }
-
-    /* Remove Streamlit elements for more space */
-    #MainMenu, footer, header {visibility: hidden; display: none;}
-    
-    /* Remove padding at the very top of the app */
-    .main .block-container {
-        padding-top: 2rem !important;
-        padding-bottom: 0rem !important;
-        max-width: 100%;
-    }
-
-    /* Target the header spacer explicitly */
-    [data-testid="stHeader"] {
-        display: none;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# --- DATA CONSTANTS ---
-RSS_FEEDS = [
-    'https://news.google.com/rss/search?q=stock+market+india+NSE+BSE+finance&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=stock+market+india+business&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=site:moneycontrol.com+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=site:financialexpress.com+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=site:business-standard.com+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms',
-    'https://www.livemint.com/rss/markets',
-    'https://news.google.com/rss/search?q=site:thehindubusinessline.com+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=site:pulse.zerodha.com&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=site:in.investing.com+intitle:(stocks+OR+markets+OR+india)&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=site:web.stockedge.com&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=site:groww.in&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=site:ndtvprofit.com+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=site:cnbctv18.com+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=site:zeebiz.com+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=site:goodreturns.in+intitle:(stocks+OR+markets+OR+shares)&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=site:ticker.finology.in&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=site:moneyworks4me.com&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=site:trendlyne.com&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=site:tickertape.in&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=site:equitymaster.com+intitle:(stocks+OR+markets+OR+shares)&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=site:marketsmojo.com&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=site:fortuneindia.com+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=site:businessworld.in+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=site:outlookbusiness.com+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=site:money.rediff.com+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=site:reuters.com+intitle:(india+AND+(stocks+OR+markets+OR+nse+OR+bse))&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=site:timesofindia.indiatimes.com+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://www.businesstoday.in/rss/markets',
-    'https://news.google.com/rss/search?q=site:screener.in&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=site:capitalmind.in&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=site:bseindia.com+corporate+announcements&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=site:nseindia.com+corporate+announcements&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=intitle:(dividend+OR+buyback+OR+"bonus+issue"+OR+"stock+split")+NSE+BSE&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=intitle:("quarterly+results"+OR+"earnings"+OR+"PAT+growth")+NSE+BSE&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=intitle:("FII+buying"+OR+"DII+selling"+OR+"bulk+deal"+OR+"block+deal")+NSE+BSE&hl=en-IN&gl=IN&ceid=IN:en',
-    'https://news.google.com/rss/search?q=intitle:("SEBI"+OR+"RBI+monetary+policy"+OR+"repo+rate")+India&hl=en-IN&gl=IN&ceid=IN:en'
-]
+    if domain in mapping: return mapping[domain]
+    if 'news.google.com' in domain:
+        for sep in [' - ', ' | ', ' : ']:
+            if sep in title: return title.split(sep)[-1].strip()
+    name = domain.split(':')[0]
+    parts = name.split('.')
+    if len(parts) >= 2:
+        if parts[-2] in ['com', 'co', 'org', 'net', 'edu', 'gov']:
+             name = parts[-3] if len(parts) >= 3 else parts[-2]
+        else: name = parts[-2]
+    return name.replace('-', ' ').capitalize()
 
 IMPACT_KEYWORDS = {
     'high': ['crash', 'crisis', 'urgent', 'breaking', 'collapsed', 'warns', 'surge', 'plunge', 'lockdown', 'rating', 'result', 'focus'],
     'pos': ['profit', 'growth', 'record', 'dividend', 'buyback', 'partnership', 'acquired', 'expansion', 'jump', 'bullish', 'buy'],
     'neg': ['loss', 'fall', 'slump', 'down', 'decline', 'investigation', 'scam', 'penalty', 'lawsuit', 'bearish', 'sell']
 }
-
-# Pre-compile Regex Patterns for speed
-IMPACT_REGEX = {
-    impact_type: re.compile(r'\b(' + '|'.join(words) + r')\b', re.IGNORECASE)
-    for impact_type, words in IMPACT_KEYWORDS.items()
-}
-
-# --- HELPER FUNCTIONS ---
-def get_source_name(url, title=""):
-    parsed = urlparse(url)
-    domain = parsed.netloc.replace('www.', '')
-    
-    # --- 1. MAPPING (Fastest/Strongest) ---
-    mapping = {
-        'moneycontrol.com': 'Moneycontrol',
-        'financialexpress.com': 'Financial Express',
-        'business-standard.com': 'Business Standard',
-        'economictimes.indiatimes.com': 'Economic Times',
-        'livemint.com': 'LiveMint',
-        'pulse.zerodha.com': 'Zerodha Pulse',
-        'businesstoday.in': 'Business Today',
-        'reuters.com': 'Reuters India',
-        'ndtvprofit.com': 'NDTV Profit',
-        'cnbctv18.com': 'CNBC TV18',
-        'zeebiz.com': 'Zee Business',
-        'bloombergquint.com': 'Bloomberg Quint',
-        'thehindubusinessline.com': 'BusinessLine',
-        'fortuneindia.com': 'Fortune India',
-        'goodreturns.in': 'GoodReturns',
-        'ticker.finology.in': 'Finology',
-        'groww.in': 'Groww',
-        'stockedge.com': 'StockEdge',
-        'investing.com': 'Investing.com',
-        'money.rediff.com': 'Rediff Money',
-        'timesofindia.indiatimes.com': 'Times of India',
-        'ndtv.com': 'NDTV Profit',
-        'outlookbusiness.com': 'Outlook Business'
-    }
-    
-    if domain in mapping:
-        return mapping[domain]
-
-    # --- 2. GOOGLE NEWS REDIRECTS (Title Extraction) ---
-    if 'news.google.com' in domain:
-        # Try multiple common delimiters used by publishers
-        for sep in [' - ', ' | ', ' : ']:
-            if sep in title:
-                return title.split(sep)[-1].strip()
-    
-    # --- 3. CLEAN FALLBACK FROM DOMAIN ---
-    # Removes TLDs like .com, .in, .net and cleans up the string
-    name = domain.split(':')[0] # Remove port if any
-    parts = name.split('.')
-    if len(parts) >= 2:
-        # Handle cases like 'co.in' or 'com.hk'
-        if parts[-2] in ['com', 'co', 'org', 'net', 'edu', 'gov']:
-             name = parts[-3] if len(parts) >= 3 else parts[-2]
-        else:
-             name = parts[-2]
-    return name.replace('-', ' ').capitalize()
+IMPACT_REGEX = {k: re.compile(r'\b(' + '|'.join(v) + r')\b', re.IGNORECASE) for k, v in IMPACT_KEYWORDS.items()}
 
 def highlight_impact(title):
     highlighted = title
-    for impact_type, pattern in IMPACT_REGEX.items():
-        highlighted = pattern.sub(f'<span class="impact-{impact_type}">\\1</span>', highlighted)
+    for k, pattern in IMPACT_REGEX.items():
+        highlighted = pattern.sub(f'<span class="impact-{k}">\\1</span>', highlighted)
     return highlighted
 
-@st.cache_data(ttl=600)  # Cache for 10 minutes
+@st.cache_data(ttl=600)
 def fetch_all_news():
+    RSS_FEEDS = [
+        'https://news.google.com/rss/search?q=stock+market+india+NSE+BSE+finance&hl=en-IN&gl=IN&ceid=IN:en',
+        'https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=en-IN&gl=IN&ceid=IN:en',
+        'https://news.google.com/rss/search?q=stock+market+india+business&hl=en-IN&gl=IN&ceid=IN:en',
+        'https://news.google.com/rss/search?q=site:moneycontrol.com+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en',
+        'https://news.google.com/rss/search?q=site:financialexpress.com+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en',
+        'https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms',
+        'https://www.livemint.com/rss/markets',
+        'https://news.google.com/rss/search?q=site:thehindubusinessline.com+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en',
+        'https://news.google.com/rss/search?q=site:pulse.zerodha.com&hl=en-IN&gl=IN&ceid=IN:en',
+        'https://news.google.com/rss/search?q=site:ndtvprofit.com+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en'
+    ]
     all_news = []
-    # Expand window to 5 days for more coverage
     cutoff = datetime.now(timezone.utc) - timedelta(hours=120)
-    
-    def fetch_feed(url):
+    for url in RSS_FEEDS:
         try:
             feed = feedparser.parse(url)
-            items = []
             for entry in feed.entries:
                 link = entry.get('link', '#')
-                source = get_source_name(link, feed.feed.get('title', ''))
                 title = entry.get('title', '')
                 if len(title.split()) < 5: continue
-                
-                # Date filtering (Last 48 Hours) - Ensure UTC
                 pub_date = None
-                if 'published_parsed' in entry:
-                    pub_date = datetime(*entry.published_parsed[:6], tzinfo=timezone.utc)
-                elif 'published' in entry:
-                    try:
-                        pub_date = pd.to_datetime(entry.published).tz_convert('UTC')
-                    except: pass
-                
-                if pub_date and pub_date < cutoff:
-                    continue
-
-                sentiment_scores = analyzer.polarity_scores(title)
-                score = sentiment_scores['compound']
-                label = 'Positive' if score > 0.05 else ('Negative' if score < -0.05 else 'Neutral')
-                
-                items.append({
-                    'title': title,
-                    'link': entry.get('link', '#'),
-                    'source': source,
-                    'pubDate': pub_date or datetime.now(timezone.utc),
-                    'score': score,
-                    'label': label
-                })
-            return items
-        except:
-            return []
-
-    # Parallelize feed fetching
-    with concurrent.futures.ThreadPoolExecutor(max_workers=30) as executor:
-        results = executor.map(fetch_feed, RSS_FEEDS)
-        for res in results:
-            all_news.extend(res)
-            
-    if not all_news:
-        return pd.DataFrame()
-
+                if 'published_parsed' in entry: pub_date = datetime(*entry.published_parsed[:6], tzinfo=timezone.utc)
+                if pub_date and pub_date < cutoff: continue
+                sentiment = analyzer.polarity_scores(title)
+                score = sentiment['compound']
+                all_news.append({'title': title, 'link': link, 'source': get_source_name(link, feed.feed.get('title', '')),
+                                'pubDate': pub_date or datetime.now(timezone.utc), 'score': score, 
+                                'label': 'Positive' if score > 0.05 else ('Negative' if score < -0.05 else 'Neutral')})
+        except: continue
+    if not all_news: return pd.DataFrame()
     df = pd.DataFrame(all_news).drop_duplicates(subset=['link'])
-    if not df.empty:
-        # Ensure sorting by date works correctly
-        df['pubDate'] = pd.to_datetime(df['pubDate'], utc=True)
-        df = df.sort_values(by='pubDate', ascending=False)
-    return df
+    df['pubDate'] = pd.to_datetime(df['pubDate'], utc=True)
+    return df.sort_values(by='pubDate', ascending=False)
 
-@st.cache_data(ttl=60)  # Cache for 1 minute
+@st.cache_data(ttl=60)
 def fetch_indices():
-    tickers = {
-        'NIFTY 50': '^NSEI',
-        'SENSEX': '^BSESN',
-        'BANK NIFTY': '^NSEBANK',
-        'INDIA VIX': '^INDIAVIX'
-    }
+    tickers = {'NIFTY 50': '^NSEI', 'SENSEX': '^BSESN', 'BANK NIFTY': '^NSEBANK', 'INDIA VIX': '^INDIAVIX'}
     results = {}
-    headers = {'User-Agent': 'Mozilla/5.0'}
-    
-    def fetch_single_index(name, ticker):
+    def fetch_single(name, ticker):
         try:
-            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?interval=1m&range=1d"
-            response = requests.get(url, headers=headers, timeout=5)
-            data = response.json()
+            data = requests.get(f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?interval=1m&range=1d", headers={'User-Agent': 'Mozilla/5.0'}).json()
             meta = data['chart']['result'][0]['meta']
-            price = meta['regularMarketPrice']
-            prev_close = meta['previousClose']
-            change = price - prev_close
-            change_pct = (change / prev_close) * 100
-            return name, {'price': price, 'change': change, 'pct': change_pct}
-        except:
-            return name, {'price': 0.0, 'change': 0.0, 'pct': 0.0}
-
+            return name, {'price': meta['regularMarketPrice'], 'change': meta['regularMarketPrice'] - meta['previousClose'], 'pct': ((meta['regularMarketPrice'] - meta['previousClose']) / meta['previousClose']) * 100}
+        except: return name, {'price': 0, 'change': 0, 'pct': 0}
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-        futures = [executor.submit(fetch_single_index, name, ticker) for name, ticker in tickers.items()]
-        for future in concurrent.futures.as_completed(futures):
-            name, data = future.result()
-            results[name] = data
-            
+        futures = [executor.submit(fetch_single, name, ticker) for name, ticker in tickers.items()]
+        for f in concurrent.futures.as_completed(futures):
+            name, d = f.result()
+            results[name] = d
     return results
 
-# --- MAIN UI ---
 def main():
-    # Initialize Pagination State
-    if 'items_to_show' not in st.session_state:
-        st.session_state.items_to_show = 100
-    # 🔄 Auto-Refresh Script & Infinite Scroll Clicker
+    if 'items_to_show' not in st.session_state: st.session_state.items_to_show = 100
+    
+    # ⚡ CORE TERMINAL STYLING
     st.markdown("""
-    <script>
-        // Auto-Refresh (2m)
-        setTimeout(function(){
-            window.location.reload();
-        }, 120000);
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Roboto+Mono:wght@400;500&display=swap');
+    * { font-family: 'Outfit', sans-serif; }
+    .stApp { background: #0f172a; }
+    #MainMenu, footer, header {visibility: hidden; display: none;}
+    [data-testid="stHeader"] { display: none; }
+    .main .block-container { padding-top: 1rem !important; max-width: 100%; }
+</style>
+""", unsafe_allow_html=True)
 
-        // Infinite Scroll Observer
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    const buttons = Array.from(document.querySelectorAll('button'));
-                    const loadMoreBtn = buttons.find(b => b.innerText.includes('Load More'));
-                    if (loadMoreBtn) {
-                        loadMoreBtn.click();
-                    }
-                }
-            });
-        }, { threshold: 0.1 });
-
-        // Periodically check for the target element and observe it
-        setInterval(() => {
-            const target = document.getElementById('load-more-trigger');
-            if (target) observer.observe(target);
-        }, 1000);
-
-        // --- INSTANT SEARCH LOGIC ---
-        // We use window.parent.document because Streamlit UI elements 
-        // are in the parent frame relative to this script.
-        const targetDoc = (window.parent && window.parent.document) ? window.parent.document : document;
-        
-        targetDoc.addEventListener('input', function(e) {
-            // Target the search input by its placeholder
-            if (e.target.tagName === 'INPUT' && e.target.placeholder === '🔍 Search market headlines...') {
-                const query = e.target.value.toLowerCase();
-                const rows = targetDoc.querySelectorAll('.news-row');
-                
-                rows.forEach(row => {
-                    const headline_elem = row.querySelector('.headline-link');
-                    if (headline_elem) {
-                        const headline = headline_elem.innerText.toLowerCase();
-                        row.style.display = headline.includes(query) ? 'flex' : 'none';
-                    }
-                });
-            }
-        });
-    </script>
-    """, unsafe_allow_html=True)
-
-    # --- ULTRA-COMPACT INDEXES (TOP) ---
+    # UI Metrics & Hits
     indices = fetch_indices()
-    sorted_names = ['NIFTY 50', 'SENSEX', 'BANK NIFTY', 'INDIA VIX']
-    col_idx = st.columns(4)
+    cols = st.columns(4)
+    for i, name in enumerate(['NIFTY 50', 'SENSEX', 'BANK NIFTY', 'INDIA VIX']):
+        val = indices.get(name, {'price': 0, 'pct': 0})
+        color = "#4ade80" if val['pct'] >= 0 else "#f87171"
+        cols[i].markdown(f'<div style="background: rgba(30,31,59,0.7); padding: 4px 8px; border-radius: 4px; border-left: 3px solid {color};"><div style="font-size: 0.65rem; color: #94a3b8;">{name}</div><div style="font-size: 1rem; font-weight: 700; color: white;">{val["price"]:.0f} <span style="font-size: 0.7rem; color: {color};">{"▲" if val["pct"]>=0 else "▼"} {abs(val["pct"]):.2f}%</span></div></div>', unsafe_allow_html=True)
     
-    for i, name in enumerate(sorted_names):
-        if name in indices:
-            val = indices[name]
-            color = "#4ade80" if val['pct'] >= 0 else "#f87171"
-            arrow = "▲" if val['pct'] >= 0 else "▼"
-            # Ultra-compact custom HTML metric
-            col_idx[i].markdown(f"""
-                <div style="background: rgba(30, 41, 59, 0.7); padding: 4px 8px; border-radius: 4px; border-left: 3px solid {color}; line-height: 1;">
-                    <div style="font-size: 0.65rem; color: #94a3b8; font-weight: 700;">{name}</div>
-                    <div style="font-size: 1rem; font-weight: 700; color: white;">{val['price']:.0f} <span style="font-size: 0.7rem; color: {color};">{arrow} {abs(val['pct']):.2f}%</span></div>
-                </div>
-            """, unsafe_allow_html=True)
-    
-    # --- HIT COUNTER (Real Data) ---
-    st.markdown("""
-        <div style="text-align: right; margin-bottom: 12px; padding-right: 10px;">
-            <img src="https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=trading-pulse-market-brief-terminal-v1&count_bg=%231e293b&title_bg=%230f172a&icon=&icon_color=%23E7E7E7&title=TERMINAL+HITS&edge_flat=true" alt="Hits"/>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("<div style='margin-bottom: 12px;'></div>", unsafe_allow_html=True)
+    st.markdown('<div style="text-align: right; margin-top: 8px;"><img src="https://hits.dwyl.com/market-brief/terminal.svg" alt="Hits"></div>', unsafe_allow_html=True)
 
-    # 🔍 Minimalist Inline Search (Full Width)
-    search_query = st.text_input("", placeholder="🔍 Search market headlines...", label_visibility="collapsed")
-    
-    with st.spinner("Syncing latest market news..."):
-        df_news = fetch_all_news()
-    
+    df_news = fetch_all_news()
     if df_news.empty:
         st.warning("No data found.")
         return
 
-    # Filter with Search
-    if search_query:
-        df_news = df_news[df_news['title'].str.contains(search_query, case=False)]
-
-    # Header Row
-    st.markdown("""
-    <div style="display: flex; gap: 12px; padding: 10px 12px; border-bottom: 2px solid rgba(255,255,255,0.1); font-weight: 700; font-size: 0.75rem; color: #64748b; letter-spacing: 1px;">
-        <div style="width: 120px;">SOURCE</div>
-        <div style="width: 65px;">TIME</div>
-        <div style="flex-grow: 1;">HEADLINE (LIVE)</div>
-        <div style="width: 80px; text-align: right;">SENTIMENT</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Render Batch 1-Line News Feed (Limit Expanded to pagination state)
-    df_slice = df_news.head(st.session_state.items_to_show)
-    
-    for _, row in df_slice.iterrows():
+    # THE SELF-CONTAINED TERMINAL COMPONENT
+    # We bundle EVERYTHING into one component to guarantee JS works on Streamlit Cloud.
+    terminal_body = ""
+    for _, row in df_news.head(st.session_state.items_to_show).iterrows():
         highlighted = highlight_impact(row['title'])
         rel_time = format_time_ago(row['pubDate'])
+        glow = "glow-pos" if row['score'] > 0.05 else ("glow-neg" if row['score'] < -0.05 else "glow-neu")
+        color = '#4ade80' if row['score'] > 0.05 else ('#f87171' if row['score'] < -0.05 else '#94a3b8')
+        terminal_body += f'<div class="news-row {glow}"><div class="source-tag">{row["source"]}</div><div class="time-tag">{rel_time}</div><a href="{row["link"]}" target="_blank" class="headline-link">{highlighted}</a><div class="sentiment-tag" style="color: {color};">{row["label"]}</div></div>'
+
+    html_content = f"""
+    <style>
+        * {{ font-family: 'Outfit', sans-serif; box-sizing: border-box; }}
+        body {{ background: #0f172a; margin: 0; overflow-x: hidden; color: white; }}
+        .news-row {{ display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.05); border-left: 3px solid transparent; width: 100%; transition: background 0.1s; }}
+        .news-row:hover {{ background: rgba(56, 189, 248, 0.05); cursor: pointer; }}
+        .glow-pos {{ border-left-color: #4ade80 !important; }}
+        .glow-neg {{ border-left-color: #f87171 !important; }}
+        .glow-neu {{ border-left-color: rgba(148, 163, 184, 0.2) !important; }}
+        .source-tag {{ width: 120px; font-size: 0.75rem; font-weight: 700; color: #38bdf8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }}
+        .time-tag {{ width: 65px; font-family: 'Roboto Mono', monospace; font-size: 0.7rem; color: #94a3b8; flex-shrink: 0; }}
+        .headline-link {{ flex-grow: 1; text-decoration: none !important; color: #f8fafc !important; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+        .sentiment-tag {{ width: 80px; text-align: right; font-size: 0.75rem; font-weight: 600; flex-shrink: 0; }}
+        .impact-high {{ color: #f87171; font-weight: 700; text-decoration: underline; }}
+        .impact-pos {{ color: #4ade80; font-weight: 700; }}
+        .impact-neg {{ color: #f87171; font-weight: 700; }}
+        #terminal-search {{ width: 100%; padding: 12px 15px; background: rgba(30, 41, 59, 0.8); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: white; outline: none; font-size: 1rem; margin-bottom: 20px; }}
+        .header {{ display: flex; gap: 12px; padding: 10px 12px; border-bottom: 2px solid rgba(255,255,255,0.1); font-weight: 700; font-size: 0.75rem; color: #64748b; letter-spacing: 1px; text-transform: uppercase; }}
+    </style>
+    
+    <input type="text" id="terminal-search" placeholder="🔍 Instant search all headlines..." autofocus>
+    
+    <div class="header">
+        <div style="width: 120px;">SOURCE</div><div style="width: 65px;">TIME</div><div style="flex-grow: 1;">HEADLINE (ZERO LATENCY)</div><div style="width: 80px; text-align: right;">SENTIMENT</div>
+    </div>
+    
+    <div id="container">
+        {terminal_body}
+    </div>
+
+    <script>
+        const searchInput = document.getElementById('terminal-search');
+        const rows = document.querySelectorAll('.news-row');
         
-        # Determine Glow Class
-        glow_class = "glow-pos" if row['score'] > 0.05 else ("glow-neg" if row['score'] < -0.05 else "glow-neu")
-        sentiment_label_color = '#4ade80' if row['score'] > 0.05 else ('#f87171' if row['score'] < -0.05 else '#94a3b8')
+        searchInput.addEventListener('input', (e) => {{
+            const q = e.target.value.toLowerCase();
+            rows.forEach(row => {{
+                const text = row.innerText.toLowerCase();
+                row.style.display = text.includes(q) ? 'flex' : 'none';
+            }});
+        }});
+        
+        // Auto-refresh communication
+        setTimeout(() => {{ 
+            window.parent.postMessage({{type: 'MB_REFRESH'}}, '*'); 
+        }}, 120000);
+    </script>
+    """
+    
+    # Render with generous height. Scroll is handled within the iframe.
+    components.html(html_content, height=1200, scrolling=True)
 
-        row_html = f"""
-        <div class="news-row {glow_class}">
-            <div class="source-tag">{row['source']}</div>
-            <div class="time-tag">{rel_time}</div>
-            <a href="{row['link']}" target="_blank" class="headline-link">{highlighted}</a>
-            <div class="sentiment-tag" style="color: {sentiment_label_color};">
-                {row['label']}
-            </div>
-        </div>
-        """
-        st.markdown(row_html, unsafe_allow_html=True)
-
-    # --- PAGINATION TRIGGER ---
     if st.session_state.items_to_show < len(df_news):
-        st.markdown('<div id="load-more-trigger" style="height: 10px;"></div>', unsafe_allow_html=True)
-        if st.button("Load More", type="secondary", use_container_width=True):
+        if st.button("Load More Headlines", type="secondary", use_container_width=True):
             st.session_state.items_to_show += 100
             st.rerun()
-    else:
-        st.markdown('<div style="text-align: center; padding: 20px; color: #64748b; font-size: 0.8rem;">End of market brief.</div>', unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
