@@ -19,10 +19,21 @@ st.set_page_config(
 # Initialize sentiment analyzer
 analyzer = SentimentIntensityAnalyzer()
 
+# --- HELPER FUNCTIONS ---
+def format_time_ago(dt):
+    if not dt: return "Now"
+    now = datetime.now(timezone.utc)
+    diff = now - dt
+    seconds = diff.total_seconds()
+    if seconds < 60: return "Now"
+    if seconds < 3600: return f"{int(seconds // 60)}m ago"
+    if seconds < 86400: return f"{int(seconds // 3600)}h ago"
+    return f"{int(seconds // 86400)}d ago"
+
 # --- STYLING ---
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Roboto+Mono:wght@400;500&display=swap');
     
     * { font-family: 'Outfit', sans-serif; }
     
@@ -32,44 +43,84 @@ st.markdown("""
     
     .stMetric {
         background: rgba(30, 41, 59, 0.7);
-        padding: 15px;
-        border-radius: 12px;
+        padding: 10px;
+        border-radius: 8px;
         border: 1px solid rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(10px);
+    }
+
+    /* High-Density Row Style */
+    .news-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 6px 12px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        transition: background 0.2s;
+        width: 100%;
+        border-left: 3px solid transparent;
     }
     
-    .news-card {
-        background: rgba(30, 41, 59, 0.5);
-        padding: 20px;
-        border-radius: 16px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        margin-bottom: 15px;
-        transition: all 0.3s ease;
+    .news-row:hover {
+        background: rgba(56, 189, 248, 0.05);
     }
-    
-    .news-card:hover {
-        transform: translateY(-2px);
-        border-color: rgba(56, 189, 248, 0.5);
-        background: rgba(30, 41, 59, 0.8);
+
+    /* Sentiment Glow Indicators */
+    .glow-pos { border-left-color: #4ade80 !important; }
+    .glow-neg { border-left-color: #f87171 !important; }
+    .glow-neu { border-left-color: rgba(148, 163, 184, 0.2) !important; }
+
+    .source-tag {
+        flex-shrink: 0;
+        width: 120px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #38bdf8;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
-    
+
+    .time-tag {
+        flex-shrink: 0;
+        width: 65px;
+        font-family: 'Roboto Mono', monospace;
+        font-size: 0.72rem;
+        color: #94a3b8;
+    }
+
+    .headline-link {
+        flex-grow: 1;
+        text-decoration: none !important;
+        color: #f8fafc !important;
+        font-size: 0.95rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .sentiment-tag {
+        flex-shrink: 0;
+        width: 80px;
+        text-align: right;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+
     .impact-high { color: #f87171; font-weight: 700; text-decoration: underline; }
     .impact-pos { color: #4ade80; font-weight: 700; }
     .impact-neg { color: #f87171; font-weight: 700; }
-    
-    .source-tag {
-        background: rgba(56, 189, 248, 0.2);
-        color: #38bdf8;
-        padding: 2px 8px;
-        border-radius: 4px;
-        font-size: 0.8rem;
-        margin-right: 10px;
+
+    /* Minimalist Top Search styling */
+    .stTextInput input {
+        border-radius: 4px !important;
+        background: rgba(30, 41, 59, 0.8) !important;
+        border: 1px solid rgba(255,255,255,0.1) !important;
+        color: white !important;
+        font-size: 0.85rem !important;
     }
-    
-    .time-tag {
-        color: #94a3b8;
-        font-size: 0.8rem;
-    }
+
+    /* Remove Streamlit elements for more space */
+    #MainMenu, footer, header {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -239,86 +290,74 @@ def fetch_indices():
 
 # --- MAIN UI ---
 def main():
-    # Sidebar Filters
-    st.sidebar.title("🔍 Filters")
-    search_query = st.sidebar.text_input("Search headlines...")
-    sentiment_filter = st.sidebar.multiselect(
-        "Sentiment", 
-        ['Positive', 'Negative', 'Neutral'], 
-        default=['Positive', 'Negative', 'Neutral']
-    )
-    
-    # Header & Indices
-    st.title("🎯 Bull & Bear")
-    st.markdown("### Market Sentiment Dashboard")
-    
+    # 🔄 Auto-Refresh Script (Every 5 Minutes)
+    st.markdown("""
+    <script>
+        setTimeout(function(){
+            window.location.reload();
+        }, 300000);
+    </script>
+    """, unsafe_allow_html=True)
+
+    # 🔍 Minimalist Inline Search
+    col_title, col_search = st.columns([2, 1])
+    with col_title:
+        st.markdown("### 🎯 BULL & BEAR TERMINAL", unsafe_allow_html=True)
+    with col_search:
+        search_query = st.text_input("", placeholder="Search headlines...")
+
+    # Market Indices
     indices = fetch_indices()
-    # Sort indices for consistent layout
     sorted_names = ['NIFTY 50', 'SENSEX', 'BANK NIFTY', 'INDIA VIX']
-    cols = st.columns(len(sorted_names))
+    col_idx = st.columns(len(sorted_names))
     for i, name in enumerate(sorted_names):
         if name in indices:
             val = indices[name]
-            cols[i].metric(
-                name, 
-                f"{val['price']:.2f}", 
-                f"{val['pct']:.2f}%",
-                delta_color="normal" if val['pct'] != 0 else "off"
-            )
+            col_idx[i].metric(name, f"{val['price']:.2f}", f"{val['pct']:.2f}%")
     
     st.divider()
     
-    # Fetch News
-    with st.spinner("Analyzing market pulse..."):
+    with st.spinner("Syncing latest market news..."):
         df_news = fetch_all_news()
     
     if df_news.empty:
-        st.warning("No news found. Check your connection or filters.")
+        st.warning("No data found.")
         return
 
-    # Filter Logic
-    filtered_df = df_news[df_news['label'].isin(sentiment_filter)]
+    # Filter with Search
     if search_query:
-        filtered_df = filtered_df[filtered_df['title'].str.contains(search_query, case=False)]
-    
-    # Layout: Chart and Feed
-    col_chart, col_feed = st.columns([1, 2])
-    
-    with col_chart:
-        st.subheader("Sentiment Distribution")
-        if not filtered_df.empty:
-            sentiment_counts = filtered_df['label'].value_counts()
-            st.bar_chart(sentiment_counts)
-            
-            avg_score = filtered_df['score'].mean()
-            st.metric("Avg Sentiment Score", f"{avg_score:.2f}", help="Range: -1 (Bearish) to +1 (Bullish)")
-        else:
-            st.info("No data for current filters.")
+        df_news = df_news[df_news['title'].str.contains(search_query, case=False)]
 
-    with col_feed:
-        st.subheader("Live Market Feed")
-        if filtered_df.empty:
-            st.info("No news matches your search/filter.")
-        else:
-            # Batch render cards for better performance
-            for _, row in filtered_df.head(50).iterrows():
-                highlighted = highlight_impact(row['title'])
-                
-                card_html = f"""
-                <div class="news-card">
-                    <div style="margin-bottom: 8px;">
-                        <span class="source-tag">{row['source']}</span>
-                        <span class="time-tag">{row['pubDate'].strftime('%H:%M')} UTC</span>
-                    </div>
-                    <a href="{row['link']}" target="_blank" style="text-decoration: none; color: inherit;">
-                        <h4 style="margin: 0; line-height: 1.4;">{highlighted}</h4>
-                    </a>
-                    <div style="margin-top: 10px; font-size: 0.8rem; color: {'#4ade80' if row['score'] > 0 else '#f87171' if row['score'] < 0 else '#94a3b8'};">
-                        Sentiment: {row['label']} ({row['score']:.2f})
-                    </div>
-                </div>
-                """
-                st.markdown(card_html, unsafe_allow_html=True)
+    # Header Row
+    st.markdown("""
+    <div style="display: flex; gap: 12px; padding: 10px 12px; border-bottom: 2px solid rgba(255,255,255,0.1); font-weight: 700; font-size: 0.75rem; color: #64748b; letter-spacing: 1px;">
+        <div style="width: 120px;">SOURCE</div>
+        <div style="width: 65px;">TIME</div>
+        <div style="flex-grow: 1;">HEADLINE (LIVE)</div>
+        <div style="width: 80px; text-align: right;">SENTIMENT</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Render Batch 1-Line News Feed
+    for _, row in df_news.head(200).iterrows():
+        highlighted = highlight_impact(row['title'])
+        rel_time = format_time_ago(row['pubDate'])
+        
+        # Determine Glow Class
+        glow_class = "glow-pos" if row['score'] > 0.05 else ("glow-neg" if row['score'] < -0.05 else "glow-neu")
+        sentiment_label_color = '#4ade80' if row['score'] > 0.05 else ('#f87171' if row['score'] < -0.05 else '#94a3b8')
+
+        row_html = f"""
+        <div class="news-row {glow_class}">
+            <div class="source-tag">{row['source']}</div>
+            <div class="time-tag">{rel_time}</div>
+            <a href="{row['link']}" target="_blank" class="headline-link">{highlighted}</a>
+            <div class="sentiment-tag" style="color: {sentiment_label_color};">
+                {row['label']}
+            </div>
+        </div>
+        """
+        st.markdown(row_html, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
