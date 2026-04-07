@@ -88,6 +88,7 @@ def fetch_all_news():
         'https://news.google.com/rss/search?q=site:ndtvprofit.com+intitle:(stocks+OR+markets+OR+nse+OR+bse)&hl=en-IN&gl=IN&ceid=IN:en'
     ]
     all_news = []
+    # Data window remains at 120h (5 days) to ensure coverage
     cutoff = datetime.now(timezone.utc) - timedelta(hours=120)
     for url in RSS_FEEDS:
         try:
@@ -128,8 +129,6 @@ def fetch_indices():
     return results
 
 def main():
-    if 'items_to_show' not in st.session_state: st.session_state.items_to_show = 100
-    
     # ⚡ CORE TERMINAL STYLING
     st.markdown("""
 <style>
@@ -142,7 +141,6 @@ def main():
 </style>
 """, unsafe_allow_html=True)
 
-    # UI Metrics & Hits
     indices = fetch_indices()
     cols = st.columns(4)
     for i, name in enumerate(['NIFTY 50', 'SENSEX', 'BANK NIFTY', 'INDIA VIX']):
@@ -159,12 +157,12 @@ def main():
 
     # THE SELF-CONTAINED TERMINAL COMPONENT
     terminal_body = ""
-    for _, row in df_news.head(st.session_state.items_to_show).iterrows():
+    # Render EVERYTHING the fetcher returns (which covers up to 120h, definitely including 48h)
+    for _, row in df_news.iterrows():
         highlighted = highlight_impact(row['title'])
         rel_time = format_time_ago(row['pubDate'])
         glow = "glow-pos" if row['score'] > 0.05 else ("glow-neg" if row['score'] < -0.05 else "glow-neu")
         color = '#4ade80' if row['score'] > 0.05 else ('#f87171' if row['score'] < -0.05 else '#94a3b8')
-        # SOURCE column removed from here
         terminal_body += f'<div class="news-row {glow}"><div class="time-tag">{rel_time}</div><a href="{row["link"]}" target="_blank" class="headline-link">{highlighted}</a><div class="sentiment-tag" style="color: {color};">{row["label"]}</div></div>'
 
     html_content = f"""
@@ -186,7 +184,7 @@ def main():
         .header {{ display: flex; gap: 12px; padding: 10px 12px; border-bottom: 2px solid rgba(255,255,255,0.1); font-weight: 700; font-size: 0.75rem; color: #64748b; letter-spacing: 1px; text-transform: uppercase; }}
     </style>
     
-    <input type="text" id="terminal-search" placeholder="🔍 Instant search all headlines..." autofocus>
+    <input type="text" id="terminal-search" placeholder="🔍 Instant search all headlines ({len(df_news)} loaded)..." autofocus>
     
     <div class="header">
         <div style="width: 65px;">TIME</div><div style="flex-grow: 1;">HEADLINE (ZERO LATENCY)</div><div style="width: 80px; text-align: right;">SENTIMENT</div>
@@ -215,12 +213,7 @@ def main():
     </script>
     """
     
-    components.html(html_content, height=1200, scrolling=True)
-
-    if st.session_state.items_to_show < len(df_news):
-        if st.button("Load More Headlines", type="secondary", use_container_width=True):
-            st.session_state.items_to_show += 100
-            st.rerun()
+    components.html(html_content, height=1500, scrolling=True)
 
 if __name__ == "__main__":
     main()
