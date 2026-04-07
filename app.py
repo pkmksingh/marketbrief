@@ -365,6 +365,24 @@ def main():
             const target = window.parent.document.getElementById('load-more-trigger');
             if (target) observer.observe(target);
         }, 1000);
+
+        // --- INSTANT SEARCH LOGIC ---
+        // We hook into the Streamlit text input by targeting the input element directly
+        document.addEventListener('input', function(e) {
+            if (e.target.tagName === 'INPUT' && e.target.placeholder === '🔍 Search market headlines...') {
+                const query = e.target.value.toLowerCase();
+                const rows = window.parent.document.querySelectorAll('.news-row');
+                
+                rows.forEach(row => {
+                    const headline = row.querySelector('.headline-link').innerText.toLowerCase();
+                    if (headline.includes(query)) {
+                        row.style.display = 'flex';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+            }
+        });
     </script>
     """, unsafe_allow_html=True)
 
@@ -392,7 +410,7 @@ def main():
             <img src="https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=trading-pulse-market-brief-terminal-v1&count_bg=%231e293b&title_bg=%230f172a&icon=&icon_color=%23E7E7E7&title=TERMINAL+HITS&edge_flat=true" alt="Hits"/>
         </div>
     """, unsafe_allow_html=True)
-
+    
     st.markdown("<div style='margin-bottom: 12px;'></div>", unsafe_allow_html=True)
 
     # 🔍 Minimalist Inline Search (Full Width)
