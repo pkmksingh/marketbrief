@@ -179,9 +179,13 @@ IMPACT_REGEX = {
 }
 
 # --- HELPER FUNCTIONS ---
-def get_source_name(url, feed_title):
+def get_source_name(url, title=""):
     parsed = urlparse(url)
     domain = parsed.netloc.replace('www.', '')
+    
+    # Special Handling for Google News redirects
+    if 'news.google.com' in domain and ' - ' in title:
+        return title.split(' - ')[-1].strip()
     
     # Mapping for professional look
     mapping = {
@@ -199,10 +203,23 @@ def get_source_name(url, feed_title):
         'bloombergquint.com': 'Bloomberg Quint',
         'ndtv.com': 'NDTV Profit',
         'thehindubusinessline.com': 'BusinessLine',
-        'fortuneindia.com': 'Fortune India'
+        'fortuneindia.com': 'Fortune India',
+        'goodreturns.in': 'GoodReturns',
+        'ticker.finology.in': 'Finology',
+        'groww.in': 'Groww',
+        'stockedge.com': 'StockEdge'
     }
     
-    return mapping.get(domain, domain.split('.')[0].capitalize())
+    if domain in mapping:
+        return mapping[domain]
+    
+    # Better fallback for nested subdomains (e.g., in.investing.com -> Investing)
+    parts = domain.split('.')
+    if len(parts) >= 2:
+        # Get the name before .com, .in, etc.
+        name = parts[-2].capitalize()
+        return name
+    return domain.capitalize()
 
 def highlight_impact(title):
     highlighted = title
@@ -222,7 +239,7 @@ def fetch_all_news():
             items = []
             for entry in feed.entries:
                 link = entry.get('link', '#')
-                source = get_source_name(link, feed.feed.get('title', ''))
+                source = get_source_name(link, entry.get('title', ''))
                 title = entry.get('title', '')
                 if len(title.split()) < 5: continue
                 
