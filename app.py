@@ -120,7 +120,19 @@ st.markdown("""
     }
 
     /* Remove Streamlit elements for more space */
-    #MainMenu, footer, header {visibility: hidden;}
+    #MainMenu, footer, header {visibility: hidden; display: none;}
+    
+    /* Remove padding at the very top of the app */
+    .main .block-container {
+        padding-top: 2rem !important;
+        padding-bottom: 0rem !important;
+        max-width: 100%;
+    }
+
+    /* Target the header spacer explicitly */
+    [data-testid="stHeader"] {
+        display: none;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -239,7 +251,7 @@ def fetch_all_news():
             items = []
             for entry in feed.entries:
                 link = entry.get('link', '#')
-                source = get_source_name(link, entry.get('title', ''))
+                source = get_source_name(link, feed.feed.get('title', ''))
                 title = entry.get('title', '')
                 if len(title.split()) < 5: continue
                 
@@ -374,6 +386,13 @@ def main():
                 </div>
             """, unsafe_allow_html=True)
     
+    # --- HIT COUNTER (Real Data) ---
+    st.markdown("""
+        <div style="text-align: right; margin-top: -12px; margin-bottom: 8px;">
+            <img src="https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Ftrading-pulse-terminal.streamlit.app&count_bg=%231e293b&title_bg=%230f172a&icon=&icon_color=%23E7E7E7&title=TERMINAL+HITS&edge_flat=true" alt="Hits"/>
+        </div>
+    """, unsafe_allow_html=True)
+
     st.markdown("<div style='margin-bottom: 12px;'></div>", unsafe_allow_html=True)
 
     # 🔍 Minimalist Inline Search (Full Width)
