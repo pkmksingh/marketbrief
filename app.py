@@ -158,14 +158,14 @@ def main():
         return
 
     # THE SELF-CONTAINED TERMINAL COMPONENT
-    # We bundle EVERYTHING into one component to guarantee JS works on Streamlit Cloud.
     terminal_body = ""
     for _, row in df_news.head(st.session_state.items_to_show).iterrows():
         highlighted = highlight_impact(row['title'])
         rel_time = format_time_ago(row['pubDate'])
         glow = "glow-pos" if row['score'] > 0.05 else ("glow-neg" if row['score'] < -0.05 else "glow-neu")
         color = '#4ade80' if row['score'] > 0.05 else ('#f87171' if row['score'] < -0.05 else '#94a3b8')
-        terminal_body += f'<div class="news-row {glow}"><div class="source-tag">{row["source"]}</div><div class="time-tag">{rel_time}</div><a href="{row["link"]}" target="_blank" class="headline-link">{highlighted}</a><div class="sentiment-tag" style="color: {color};">{row["label"]}</div></div>'
+        # SOURCE column removed from here
+        terminal_body += f'<div class="news-row {glow}"><div class="time-tag">{rel_time}</div><a href="{row["link"]}" target="_blank" class="headline-link">{highlighted}</a><div class="sentiment-tag" style="color: {color};">{row["label"]}</div></div>'
 
     html_content = f"""
     <style>
@@ -176,7 +176,6 @@ def main():
         .glow-pos {{ border-left-color: #4ade80 !important; }}
         .glow-neg {{ border-left-color: #f87171 !important; }}
         .glow-neu {{ border-left-color: rgba(148, 163, 184, 0.2) !important; }}
-        .source-tag {{ width: 120px; font-size: 0.75rem; font-weight: 700; color: #38bdf8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }}
         .time-tag {{ width: 65px; font-family: 'Roboto Mono', monospace; font-size: 0.7rem; color: #94a3b8; flex-shrink: 0; }}
         .headline-link {{ flex-grow: 1; text-decoration: none !important; color: #f8fafc !important; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
         .sentiment-tag {{ width: 80px; text-align: right; font-size: 0.75rem; font-weight: 600; flex-shrink: 0; }}
@@ -190,7 +189,7 @@ def main():
     <input type="text" id="terminal-search" placeholder="🔍 Instant search all headlines..." autofocus>
     
     <div class="header">
-        <div style="width: 120px;">SOURCE</div><div style="width: 65px;">TIME</div><div style="flex-grow: 1;">HEADLINE (ZERO LATENCY)</div><div style="width: 80px; text-align: right;">SENTIMENT</div>
+        <div style="width: 65px;">TIME</div><div style="flex-grow: 1;">HEADLINE (ZERO LATENCY)</div><div style="width: 80px; text-align: right;">SENTIMENT</div>
     </div>
     
     <div id="container">
@@ -216,7 +215,6 @@ def main():
     </script>
     """
     
-    # Render with generous height. Scroll is handled within the iframe.
     components.html(html_content, height=1200, scrolling=True)
 
     if st.session_state.items_to_show < len(df_news):
